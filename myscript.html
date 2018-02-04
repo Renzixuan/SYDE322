@@ -1,0 +1,241 @@
+<!DOCTYPE html> 
+<html> 
+   <header>   
+        <meta http-equiv="content-type" content="text/html;charset=utf-8" /> 
+        <script>       
+			function simplify() {
+				// get text from id="MyText"
+				var expression = document.getElementById("expression");   
+				var result = "";
+
+				// Error handle if not balanced brackets 
+				if (!balancedBrackets(expression.value))
+				{
+					result = "ERROR! There's a bracket error";
+				}
+				else {				
+					// Split based on operations 
+					var charArray = expression.value.split('');
+
+					// Convert infix to postfix 
+					var postfix = infixToPostfix(charArray);
+					
+					// Convert postfix to result				
+					var resultStack = new Stack();
+					for (var i = postfix.length - 1; i >= 0; i--) {
+						//char is not operator yet
+						if (!isOperator(postfix[i])) {
+							// 7. Involution Law  
+							// If ~(~A)
+							if (postfix[i-2] == '~' && postfix[i-1] == '~') {
+								resultStack.push(postfix[i]);
+							}			
+							// If (~A+A)
+							else if (postfix[i-2] == '~' && postfix[i-1] != '~' && isOperator(postfix[i-1])) {
+								var val = postfix[i-2] + postfix[i];
+								resultStack.push(val);
+							}	
+							// If (A+~A)
+							// If it's a ~, then push both into one value (like be ~A for example) 
+							else if (postfix[i-2] != '~' && postfix[i-1] == '~') {
+								var val = postfix[i-1] + postfix[i];
+								resultStack.push(val);
+							}
+							else {
+								resultStack.push(postfix[i]);
+							}
+						} 
+						else if (postfix[i] == '~') {
+							// do nothing 
+						}
+						else {
+							var a = resultStack.pop().data;
+							var b = resultStack.pop().data;
+									
+							var simplified = checkPossibleSimp(a, b, postfix[i]);
+							if ((simplified == a + postfix[i] + b) || i == 0) {
+								result += simplified;
+							} 
+							else if (simplified == 0 || simplified == 1) {
+								result += simplified;
+							}
+							else {
+								resultStack.push(postfix);
+							}
+						}
+					}
+				}
+				// Output simplified expression 
+				var simplifiedExpression = document.getElementById("simplifiedExpression");  
+				simplifiedExpression.value = result;
+			}
+
+			// Check for possible simplifications 
+			function checkPossibleSimp(a, b, operator) {
+				//0. Commutative law (done because of stack popping order)
+				//1. Idempotent law
+				if (a == b && (operator == '*' || operator == '+')) {
+					return a;
+				} 
+				//2. Identity law (a * 0 = 0)
+				else if ((a == '0' || b == '0') && operator == '*') {
+					return '0';
+				}
+				//3. Identity law (a + 0 = a)
+				else if (((a == '0' && b != '0') || (a != '0' && b == '0')) && operator == '+') {
+					return a == '0' ? b : a;
+				}
+				//4. Identity law (a + 1 = 1)
+				else if ((a == '1' || b == '1') && operator == '+') {
+					return '1';
+				}
+				//5. Identity law (a * 1 = a)
+				else if (((a == '1' && b != '1') || (a != '1' && b == '1')) && operator == '*') {
+					return a == '1' ? b : a;
+				}	
+				// 6. Complement Law 
+				else if (a.match(/[~]/) || b.match(/[~]/)) {
+					// Complement Law (A*~A = 0)
+					if (operator == '*') {
+						return 0;
+					}
+					// Complement Law (A+~A = 0)
+					else {
+						return 1;
+					}
+				}
+				else {
+					return a + operator + b;
+				}
+			};
+
+			// Converts infix expression to postfix 
+			function infixToPostfix(array) {
+				var postfix = '', len = array.length; 
+				var stack = new Stack();
+				
+				for (var i = 0; i < len; i++) {
+					if (array[i].match(/[+\*\~]/)) {//TODO: talk to Lily about this  //(\)\
+						postfix += array[i];
+					}
+					else if (array[i] === " ") {
+						// do nothing 
+					}
+					else if (stack.size == 0) {
+						stack.push(array[i]);
+					}
+					else {
+						switch (array[i]) {
+							case ')':
+								while (stack.size > 0 && stack.top.data !== '(') {
+									postfix += stack.pop().data;
+								}
+								stack.pop();
+								break;
+							default:
+								stack.push(array[i]);
+								break;
+						}
+					}
+				}
+				
+				while (stack.size > 0) {
+					postfix += stack.pop().data;
+				}
+				return postfix;
+			};
+
+			// Checks if brackets are balanced 
+			function balancedBrackets(str) {
+				var depth = 0;
+				for (var i in str) {
+					if (str[i] == '(') {
+						depth++; 
+					} else if (str[i] == ')') {
+						depth--;
+					}
+					
+					if (depth < 0) {
+						return false; 
+					}
+				}
+				if (depth > 0) {
+					return false;
+				}
+				return true;
+			};
+
+			// Return true if letter/char
+			function isLetter(str) {
+			  return str.length === 1 && str.match(/[a-z]/i);
+			};
+
+			// Return true if an operator 
+			function isOperator(x) {
+				switch(x) {
+					case '~':
+					case '+':
+					case '.':
+					case '*':
+					case '(':
+					case ')':
+						return true;
+					default:
+						return false; 
+				}
+			};
+
+			// Stack  
+			var Stack = function(){
+			  this.top = null;
+			  this.size = 0;
+			};
+
+			// Node
+			var Node = function(data){
+			  this.data = data;
+			  this.previous = null;
+			};
+
+			// Push in Stack 
+			Stack.prototype.push = function(data) {
+			  var node = new Node(data);
+
+			  node.previous = this.top;
+			  this.top = node;
+			  this.size += 1;
+			  return this.top;
+			};
+
+			// Pop in Stack 
+			Stack.prototype.pop = function() {
+			  temp = this.top;
+			  this.top = this.top.previous;
+			  this.size -= 1;
+			  return temp;
+			};
+
+			// Check if Stack is empty 
+			Stack.prototype.isEmpty = function(array) {
+				if (array.length > 0) {
+					return false;
+				}
+				return true;
+			}
+		</script>   
+	</header>   
+	<body style="text-align:center">   
+		<h1 id="test" onclick="changeText()">My SYDE 322 test script</h1> 
+		<script>   
+			// the following gets executed immediately 
+			document.getElementById("test").innerHTML = "SYDE 322 - Application Exercise"; 
+		</script>   
+		<p>
+			<p>Input your math expression here: </p>
+			<input type = "text" style="width: 270px;height: 30px; font-size: 20px" id="expression" value = "" />
+			<button type="button" style="height: 30px; font-size: 20px; color: green" onclick="simplify()"/>Simplify</button>
+			<p>Simplified Expression: </p>
+			<input type = "text" style="width: 400px;height: 30px; font-size: 20px" id="simplifiedExpression" value = "" />
+		</p>
+	</body>  
+</html> 
