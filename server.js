@@ -5,7 +5,33 @@ var bodyParser = require('body-parser');
 var fs = require('fs');
 var path = require('path');
 var app = express();
-app.use(bodyParser.json());
+
+const passport = require('passport');  
+const strategy = require('passport-local');
+const jwt = require('jsonwebtoken');
+const expressJwt = require('express-jwt');  
+const cryptoJs = require('crypto-js');
+const crypto = require('crypto');
+
+const serverSecret = crypto.createDiffieHellman(60).generateKeys('base64');
+const passwordKey = crypto.createDiffieHellman(30).generateKeys('base64');
+const authenticate = expressJwt({secret: serverSecret});
+
+//access control for port for frontend
+app.use(bodyParser.json(), function(req, res, next) {
+	//allow multiple origins
+	var allowedOrigins = ['http://localhost:8080', 'http://localhost:3000'];
+	var origin = req.headers.origin;
+  	if(allowedOrigins.indexOf(origin) > -1){
+       res.header('Access-Control-Allow-Origin', origin);
+  	}
+    res.header("Access-Control-Allow-Credentials", 'true');
+    res.header(	
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    );
+    next();
+ });
 
 //Set up a server listener on port 8080
 var server = app.listen(8080, function () {
@@ -13,80 +39,169 @@ var server = app.listen(8080, function () {
   console.log("Node.js server running at localhost:%s", port)
 })
 
-//Handle GET requests for base '/' path
-app.get('/', (req, res) => {
-	console.log("GET requiest received for /");
-	res.status(200).json({"message": "Welcome to LilTim REST-based web service"});
+
+//====================================================//
+//					Authentication					  //
+//====================================================//
+
+// purpose: uses passport-local strategy to handle username/password authentication
+passport.use(new strategy( 
+  function(username, password, done) {
+    // (1) replace the following with data retrieved from database
+    // (2) ensure that password is not handled as plaintext
+
+    //TODO: compare this encrypted password with password stored in db
+    var encrypted = cryptoJs.AES.encrypt(password, passwordKey).toString();
+  
+    //igor demo version, use plain text password for now
+    if(username === 'admin' && password === 'password'){ 
+      done(null, { // stub call to a database; returning fixed info
+        id: 42, fname: 'Tim', lname: 'Tsang', role: 'premium'
+      });
+    }
+    else {
+      done(null, false);
+    }
+  }
+));
+
+app.post('/authenticate', passport.authenticate(  
+  'local', {
+    session: false
+  }), serializeUser, generateToken, returnToken);
+
+// purpose: update or create user data in database and only return user.id
+function serializeUser(req, res, next) {  
+  db.updateOrCreate(req.user, function(err, user){
+    if(err) {return next(err);}
+      req.user = {
+        id: user.id,
+        fname: user.fname,
+    	lname: user.lname,
+        role: user.role
+      };
+      next();
+  });
+  next();
+}
+
+// purpose: generates a token based on provided user.id; token is set to expire based on expiresIn value
+function generateToken(req, res, next) {  
+  req.token = jwt.sign({
+    id: req.user.id,
+    fname: req.user.fname,
+    lname: req.user.lname,
+    role: req.user.role
+  }, serverSecret, {
+    expiresIn : 60*5	// set to expire in 5 minutes
+  });
+  next(); // pass on control to the next function
+}
+
+// purpose: return generated token to caller
+function returnToken(req, res) {  
+  res.status(200).json({
+    user: req.user,
+    token: req.token
+  });
+}
+
+//dummy db
+const db = {  
+  updateOrCreate: function(user, cb){
+    // db dummy, we just cb the user
+    cb(null, user);
+  }
+};
+
+//====================================================//
+//					Features Endpoints				  //
+//====================================================//
+
+//Handle GET requests for base unsecured '/' path 
+app.get('/', authenticate, (req, res) => {
+	console.log("GET request received for /");
+	res.status(200).json({"message": "Welcome to LilTim REST-based web service", "links": {"rel" : "authenticate", "href" : "http://localhost:8080/authenticate"}});
 })
 
 //Handle POST requests for '/result' path
-app.post("/result", (req, res) => {
+app.post("/result", authenticate, (req, res) => {
 	console.log("POST request received for /result");
 
-//use simplify module to produce simplification results
-fs.readFile(__dirname + "/results.json", 'utf8', (err, data) => {
-	if (err && err.code == "ENOENT") {
-  	console.error("Invalid filename provided");
-  	return;
-	}
-
-    try {
-    	let simplified;
-		var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
-    	var expressions = JSON.parse(data);
-
-		if (expressions[currentExpression]) {
-			simplified = expressions[currentExpression];
-		} else {
-			simplified = simplify.simplify(currentExpression);
-			expressions[currentExpression] = simplified;
-			fs.writeFileSync(__dirname + "/results.json", JSON.stringify(expressions));
-		}
-
-		res.send(simplified);
-
-	} catch (err) {
-		res.status(400).json({error: "Invalid request for results!"});
-	}
-})});
-
-//Handle POST requests for '/postfix' path
-app.post("/postfix", (req, res) => {
-	console.log("POST request received for /getPostfix");
-	fs.readFile(__dirname + "/postfix.json", 'utf8', (err, data) => {
+	//use simplify module to produce simplification results, can be accessed by all users
+	fs.readFile(__dirname + "/results.json", 'utf8', (err, data) => {
 		if (err && err.code == "ENOENT") {
-      	console.error("Invalid filename provided");
-      	return;
-    	}
-
-    try {
-    	let postfix;
-		var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
-    	var expressions = JSON.parse(data);
-
-		if (expressions[currentExpression]) {
-			postfix = expressions[currentExpression];
-		} else {
-			postfix = simplify.getPostfix(currentExpression);
-			expressions[currentExpression] = postfix;
-			fs.writeFileSync(__dirname + "/postfix.json", JSON.stringify(expressions));
+	  	console.error("Invalid filename provided");
+	  	return;
 		}
 
-		res.send(postfix);
+	    try {
+	    	let simplified;
+			var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
+	    	var expressions = JSON.parse(data);
 
-	} catch (err) {
-		res.status(400).json({error: "Invalid request for postfix!"});
-	}
-})});
+			if (expressions[currentExpression]) {
+				simplified = expressions[currentExpression];
+			} else {
+				simplified = simplify.simplify(currentExpression);
+				expressions[currentExpression] = simplified;
+				fs.writeFileSync(__dirname + "/results.json", JSON.stringify(expressions));
+			}
 
-//Handle GET requests for '/history' path, download simplified result history as json file
-app.get('/history', (req, res) => {
-	console.log("GET request received for simplify history");
-	var historyFile = __dirname + '/results.json';
-	if (fs.existsSync(historyFile)) {
-    	res.download(historyFile);
-	}
-})
+			res.send(simplified);
+
+		} catch (err) {
+			res.status(400).json({error: "Invalid request for results!"});
+		}
+	})
+});
+
+//Handle POST requests for '/postfix' path, only accessible by premium users
+app.post("/postfix", authenticate, (req, res, next) => {
+	passport.authenticate('local', (err, user) => {
+		try {
+			if (req.user.role === 'premium') {
+			console.log("POST request received for /getPostfix");
+			fs.readFile(__dirname + "/postfix.json", 'utf8', (err, data) => {
+				if (err && err.code == "ENOENT") {
+		      	console.error("Invalid filename provided");
+		      	return;
+		    	}
+
+		    try {
+		    	let postfix;
+				var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
+		    	var expressions = JSON.parse(data);
+
+				if (expressions[currentExpression]) {
+					postfix = expressions[currentExpression];
+				} else {
+					postfix = simplify.getPostfix(currentExpression);
+					expressions[currentExpression] = postfix;
+					fs.writeFileSync(__dirname + "/postfix.json", JSON.stringify(expressions));
+				}
+
+				res.send(postfix);
+
+				} catch (err) {
+					res.status(400).json({error: "Invalid request for postfix!"});
+				}
+				});
+			} else {
+				return res.status(403).send({
+	          	'status': 403,
+	          	'message': 'You are not a premium user'
+	        	});
+			}
+		} catch (err) {
+			return res.status(401).send({
+	        'status': 401,
+	        'message': 'An authentication error occurred.',
+      		});	
+		}
+		
+     }) (req, res, next);
+});
 
 
 
