@@ -5,7 +5,15 @@ var bodyParser = require('body-parser');
 var fs = require('fs');
 var path = require('path');
 var app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json(), function(req, res, next) {
+    res.header("Access-Control-Allow-Origin", 'http://localhost:3000');
+    res.header("Access-Control-Allow-Credentials", 'true');
+    res.header(	
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    next();
+ });
 
 //Set up a server listener on port 8080
 var server = app.listen(8080, function () {
@@ -87,8 +95,3 @@ app.get('/history', (req, res) => {
     	res.download(historyFile);
 	}
 })
-
-
-
-
-
