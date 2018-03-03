@@ -1,1 +1,1 @@
-{"X+X":"X","(X+Y)(X+~Y)":"X","~~A":"A","X+(Y+Z)":"ERROR! Non-valid expression.","X(YZ)":"(XY)Z","A(BC)":"(AB)C"}
+{"X+X":"X"}
