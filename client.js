@@ -23,40 +23,42 @@ function postResult() {
     axios.defaults.withCredentials = true;
 
     var expression = document.getElementById('expression').value;
-    const token = window.sessionStorage.getItem('accessToken');
+    if (expression != "") {
+        const token = window.sessionStorage.getItem('accessToken');
 
-    axios.post('http://localhost:8080/result', {'expression': expression}, {headers: {'Authorization': "Bearer " + token}})
-    .then(function (res) {
-        console.log(res);
-        document.getElementById('simplifiedExpression').value = res.data;
-    })
-    .catch (function (err) {
-        console.error(err);
-
-    	if (err.response.status === 401) {
-        	window.location.assign('http://localhost:3000/login');
-        }
-    });
+        axios.post('http://localhost:8080/result', {'expression': expression}, {headers: {'Authorization': "Bearer " + token}})
+        .then(function (res) {
+            document.getElementById('simplifiedExpression').value = res.data;
+        })
+        .catch (function (err) {
+            console.error(err);
+    
+            if (err.response.status === 401) {
+                window.location.assign('http://localhost:3000/login');
+            }
+        });
+    }
 }
 
 function postPostfix() {
     axios.defaults.withCredentials = true;
 
-    var expression = document.getElementById('expression').value;
-	const token = window.sessionStorage.getItem('accessToken');
+    var expression = document.getElementById('expression').value;    
+    if (expression != "") {
+        const token = window.sessionStorage.getItem('accessToken');
 
-    axios.post('http://localhost:8080/postfix', {'expression': expression}, {headers: {'Authorization': "Bearer " + token}})
-    .then(function (res) {
-        console.log(res);
-        document.getElementById('postfix').value = res.data;
-    })
-    .catch (function (err) {
-        console.error(err);
-
-    	if (err.response.status === 401) {
-        	window.location.assign('http://localhost:3000/login');
-        } else if (err.response.status === 403) {
-            document.getElementById('premiumMessage').style.visibility = 'visible';
-        }
-    });
+        axios.post('http://localhost:8080/postfix', {'expression': expression}, {headers: {'Authorization': "Bearer " + token}})
+        .then(function (res) {
+            document.getElementById('postfix').value = res.data;
+        })
+        .catch (function (err) {
+            console.error(err);
+    
+            if (err.response.status === 401) {
+                window.location.assign('http://localhost:3000/login');
+            } else if (err.response.status === 403) {
+                document.getElementById('premiumMessage').style.visibility = 'visible';
+            }
+        });
+    }
 }

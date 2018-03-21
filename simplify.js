@@ -242,7 +242,7 @@ function infixToPostfix(array) {
     var stack = new Stack();
     
     for (var i = 0; i < len; i++) {
-        if (array[i].match(/[+\*\~]/)) {//TODO: talk to Lily about this  //(\)\
+        if (array[i].match(/[+\*\~]/)) {
             postfix += array[i];
         }
         else if (array[i] == ")" && i < len-1 && isLetter(array[i+1])) {
