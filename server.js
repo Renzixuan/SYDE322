@@ -1,4 +1,5 @@
 const simplify = require('./simplify.js');
+const dbManager = require("./dbManager.js");
 
 var express = require('express');
 var bodyParser = require('body-parser');
@@ -127,33 +128,13 @@ app.get('/', authenticate, (req, res) => {
 //Handle POST requests for '/result' path
 app.post("/result", authenticate, (req, res) => {
 	console.log("POST request received for /result");
-
-	//use simplify module to produce simplification results, can be accessed by all users
-	fs.readFile(__dirname + "/results.json", 'utf8', (err, data) => {
-		if (err && err.code == "ENOENT") {
-	  	console.error("Invalid filename provided");
-	  	return;
-		}
-
 	    try {
-	    	let simplified;
-			var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
-	    	var expressions = JSON.parse(data);
-
-			if (expressions[currentExpression]) {
-				simplified = expressions[currentExpression];
-			} else {
-				simplified = simplify.simplify(currentExpression);
-				expressions[currentExpression] = simplified;
-				fs.writeFileSync(__dirname + "/results.json", JSON.stringify(expressions));
-			}
-
-			res.send(simplified);
-
+			  var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
+				var queryString = "SELECT * FROM dbo.Results WHERE InputExpression = '" + currentExpression + "'";
+				dbManager.getDBData(req, res, queryString, currentExpression, 1);
 		} catch (err) {
 			res.status(400).json({error: "Invalid request for results!"});
 		}
-	})
 });
 
 //Handle POST requests for '/postfix' path, only accessible by premium users
@@ -161,48 +142,27 @@ app.post("/postfix", authenticate, (req, res, next) => {
 	passport.authenticate('local', (err, user) => {
 		try {
 			if (req.user.role === 'premium') {
-			console.log("POST request received for /getPostfix");
-			fs.readFile(__dirname + "/postfix.json", 'utf8', (err, data) => {
-				if (err && err.code == "ENOENT") {
-		      	console.error("Invalid filename provided");
-		      	return;
-		    	}
-
+				console.log("POST request received for /getPostfix");
 		    try {
-		    	let postfix;
-				var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
-		    	var expressions = JSON.parse(data);
-
-				if (expressions[currentExpression]) {
-					postfix = expressions[currentExpression];
-				} else {
-					postfix = simplify.getPostfix(currentExpression);
-					expressions[currentExpression] = postfix;
-					fs.writeFileSync(__dirname + "/postfix.json", JSON.stringify(expressions));
-				}
-
-				res.send(postfix);
-
+					var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
+					var queryString = "SELECT * FROM dbo.Results WHERE Postfix = '" + currentExpression + "'";
+					dbManager.getDBData(req, res, queryString, currentExpression, 2);
 				} catch (err) {
 					res.status(400).json({error: "Invalid request for postfix!"});
 				}
-				});
-			} else {
+			} 
+			else {
 				return res.status(403).send({
 	          	'status': 403,
 	          	'message': 'You are not a premium user'
 	        	});
 			}
-		} catch (err) {
+		} 
+		catch (err) {
 			return res.status(401).send({
 	        'status': 401,
 	        'message': 'An authentication error occurred.',
       		});	
-		}
-		
-     }) (req, res, next);
+		}		
+	}) (req, res, next);
 });
-
-
-
-
