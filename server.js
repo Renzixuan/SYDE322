@@ -18,6 +18,13 @@ const serverSecret = crypto.createDiffieHellman(60).generateKeys('base64');
 const passwordKey = crypto.createDiffieHellman(30).generateKeys('base64');
 const authenticate = expressJwt({secret: serverSecret});
 
+// Refactor method - Replace magic numbers with Symbolic Constants 
+const EXPIRY_TIME = 200; // 5 Minutes 
+const SUCCESS = 200; 
+const BAD_REQUEST = 400;
+const UNAUTHORIZED = 401;
+const FORBIDDEN = 403;
+
 //access control for port for frontend
 app.use(bodyParser.json(), function(req, res, next) {
 	//allow multiple origins
@@ -94,14 +101,14 @@ function generateToken(req, res, next) {
     lname: req.user.lname,
     role: req.user.role
   }, serverSecret, {
-    expiresIn : 60*5	// set to expire in 5 minutes
+    expiresIn : EXPIRY_TIME	// set to expire in 5 minutes
   });
   next(); // pass on control to the next function
 }
 
 // purpose: return generated token to caller
 function returnToken(req, res) {  
-  res.status(200).json({
+  res.status(SUCCESS).json({
     user: req.user,
     token: req.token
   });
@@ -122,7 +129,7 @@ const db = {
 //Handle GET requests for base unsecured '/' path 
 app.get('/', authenticate, (req, res) => {
 	console.log("GET request received for /");
-	res.status(200).json({"message": "Welcome to LilTim REST-based web service", "links": {"rel" : "authenticate", "href" : "http://localhost:8080/authenticate"}});
+	res.status(SUCCESS).json({"message": "Welcome to LilTim REST-based web service", "links": {"rel" : "authenticate", "href" : "http://localhost:8080/authenticate"}});
 })
 
 //Handle POST requests for '/result' path
@@ -133,7 +140,7 @@ app.post("/result", authenticate, (req, res) => {
 				var queryString = "SELECT * FROM dbo.Results WHERE InputExpression = '" + currentExpression + "'";
 				dbManager.getDBData(req, res, queryString, currentExpression, 1);
 		} catch (err) {
-			res.status(400).json({error: "Invalid request for results!"});
+			res.status(BAD_REQUEST).json({error: "Invalid request for results!"});
 		}
 });
 
@@ -148,19 +155,19 @@ app.post("/postfix", authenticate, (req, res, next) => {
 					var queryString = "SELECT * FROM dbo.Results WHERE Postfix = '" + currentExpression + "'";
 					dbManager.getDBData(req, res, queryString, currentExpression, 2);
 				} catch (err) {
-					res.status(400).json({error: "Invalid request for postfix!"});
+					res.status(BAD_REQUEST).json({error: "Invalid request for postfix!"});
 				}
 			} 
 			else {
-				return res.status(403).send({
-	          	'status': 403,
+				return res.status(FORBIDDEN).send({
+	          	'status': FORBIDDEN,
 	          	'message': 'You are not a premium user'
 	        	});
 			}
 		} 
 		catch (err) {
-			return res.status(401).send({
-	        'status': 401,
+			return res.status(UNAUTHORIZED).send({
+	        'status': UNAUTHORIZED,
 	        'message': 'An authentication error occurred.',
       		});	
 		}		

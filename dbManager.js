@@ -7,6 +7,9 @@ const simplify = require('./simplify.js');
 var Connection = require('tedious').Connection;
 var Request = require('tedious').Request;
 
+// Refactor method - Replace magic numbers with Symbolic Constants 
+const BAD_REQUEST = 400;
+
 // DB Connection 
 const connectionString = { 
     userName: 'dbAdmin', 
@@ -25,7 +28,7 @@ function getDBData(req, res, inputstring, currentExpression, code) {
     var connection = new Connection(connectionString);
     connection.on('connect', function(err) {
       if (err) {
-        res.status(400).json({ error: "Invalid service request" });      
+        res.status(BAD_REQUEST).json({ error: "Invalid service request" });      
         console.log(err)
         return;
       }
@@ -33,7 +36,7 @@ function getDBData(req, res, inputstring, currentExpression, code) {
     console.log("SQL query submitted: " + inputstring);
     var request = new Request(inputstring, function(err, rowCount, rows) {
         if(err) {
-            res.status(400).json({ error: "Invalid SQL query request" });          
+            res.status(BAD_REQUEST).json({ error: "Invalid SQL query request" });          
             console.log('Invalid service request');
             connection.close();
             return;
@@ -84,7 +87,7 @@ function getDBData(req, res, inputstring, currentExpression, code) {
     var connection = new Connection(connectionString);
     connection.on('connect', function(err) {
       if (err) {
-        res.status(400).json({ error: "Invalid service request" });      
+        res.status(BAD_REQUEST).json({ error: "Invalid service request" });      
         console.log(err);
         return;
       }
@@ -92,7 +95,7 @@ function getDBData(req, res, inputstring, currentExpression, code) {
       var queryString = "INSERT INTO dbo.Results VALUES (CURRENT_TIMESTAMP, '" + currentExp + "', '" + postfix + "', '" + simplifiedExp + "')";
       var request = new Request(queryString, function(err) {
         if(err) {
-            res.status(400).json({ error: "Invalid SQL query request" });          
+            res.status(BAD_REQUEST).json({ error: "Invalid SQL query request" });          
             console.log('Invalid service request');
             connection.close();
             return;

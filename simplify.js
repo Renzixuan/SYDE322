@@ -262,12 +262,6 @@ function infixToPostfix(array) {
         }
         else {
             switch (array[i]) {
-            //  case ')':
-            //      while (stack.size > 0 && stack.top.data !== '(') {
-            //          postfix += stack.pop().data;
-            //      }
-            //      stack.pop();
-            //      break;
                 default:
                     stack.push(array[i]);
                     break;
@@ -352,7 +346,6 @@ function checkBracket(str) {
     }
     return false;
 }
-
 
 // Check if repetition in string 
 function checkString(text,index){

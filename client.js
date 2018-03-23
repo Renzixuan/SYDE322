@@ -1,3 +1,7 @@
+// Refactor method - Replace magic numbers with Symbolic Constants 
+const UNAUTHORIZED = 401;
+const FORBIDDEN = 403;
+
 function authenticate() {
     axios.defaults.withCredentials = true;
 
@@ -33,7 +37,7 @@ function postResult() {
         .catch (function (err) {
             console.error(err);
     
-            if (err.response.status === 401) {
+            if (err.response.status === UNAUTHORIZED) {
                 window.location.assign('http://localhost:3000/login');
             }
         });
@@ -54,9 +58,9 @@ function postPostfix() {
         .catch (function (err) {
             console.error(err);
     
-            if (err.response.status === 401) {
+            if (err.response.status === UNAUTHORIZED) {
                 window.location.assign('http://localhost:3000/login');
-            } else if (err.response.status === 403) {
+            } else if (err.response.status === FORBIDDEN) {
                 document.getElementById('premiumMessage').style.visibility = 'visible';
             }
         });
