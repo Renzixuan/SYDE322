@@ -14,7 +14,7 @@ function authenticate() {
     })
     .then(function (res) {
         console.log(res);
-        window.sessionStorage.accessToken = res.data.token;
+        window.localStorage.accessToken = res.data.token;
         window.location.assign('http://localhost:3000/home');
     })
     .catch (function (err) {
@@ -28,7 +28,7 @@ function postResult() {
 
     var expression = document.getElementById('expression').value;
     if (expression != "") {
-        const token = window.sessionStorage.getItem('accessToken');
+        const token = window.localStorage.getItem('accessToken');
 
         axios.post('http://localhost:8080/result', {'expression': expression}, {headers: {'Authorization': "Bearer " + token}})
         .then(function (res) {
@@ -48,8 +48,8 @@ function postPostfix() {
     axios.defaults.withCredentials = true;
 
     var expression = document.getElementById('expression').value;    
-    if (expression != "") {
-        const token = window.sessionStorage.getItem('accessToken');
+    if (expression !== "") {
+        const token = window.localStorage.getItem('accessToken');
 
         axios.post('http://localhost:8080/postfix', {'expression': expression}, {headers: {'Authorization': "Bearer " + token}})
         .then(function (res) {
