@@ -159,19 +159,19 @@ app.post("/postfix", authenticate, (req, res, next) => {
           dbManager.getDBExpressionData(req, res, queryString, currentExpression, 2);
 
         } catch (err) {
-          res.status(400).json({error: "Invalid request for postfix!"});
+          res.status(BAD_REQUEST).json({error: "Invalid request for postfix!"});
         }
       } 
       else if (req.user.role === 'regular') {
-        return res.status(403).send({
-              'status': 403,
+        return res.status(FORBIDDEN).send({
+              'status': FORBIDDEN,
               'message': 'You are not a premium user'
             });
       }
     } 
     catch (err) {
-      return res.status(401).send({
-          'status': 401,
+      return res.status(UNAUTHORIZED).send({
+          'status': UNAUTHORIZED,
           'message': 'An authentication error occurred.',
           }); 
     }
