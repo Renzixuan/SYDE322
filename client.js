@@ -50,8 +50,6 @@ function postPostfix() {
     var expression = document.getElementById('expression').value;    
     if (expression !== "") {
         const token = window.localStorage.getItem('accessToken');
-        console.log("expressions is: " + expression);
-        console.log("token is: " + token);
 
         axios.post('http://localhost:8080/postfix', {'expression': expression}, {headers: {'Authorization': "Bearer " + token}})
         .then(function (res) {
