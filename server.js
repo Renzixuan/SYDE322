@@ -15,11 +15,10 @@ const cryptoJs = require('crypto-js');
 const crypto = require('crypto');
 
 const serverSecret = crypto.createDiffieHellman(60).generateKeys('base64');
-const passwordKey = crypto.createDiffieHellman(30).generateKeys('base64');
 const authenticate = expressJwt({secret: serverSecret});
 
 // Refactor method - Replace magic numbers with Symbolic Constants 
-const EXPIRY_TIME = 200; // 5 Minutes 
+const EXPIRY_TIME = 5*60; // 5 Minutes 
 const SUCCESS = 200; 
 const BAD_REQUEST = 400;
 const UNAUTHORIZED = 401;
@@ -55,21 +54,28 @@ var server = app.listen(8080, function () {
 // purpose: uses passport-local strategy to handle username/password authentication
 passport.use(new strategy( 
   function(username, password, done) {
-    // (1) replace the following with data retrieved from database
-    // (2) ensure that password is not handled as plaintext
 
-    //TODO: compare this encrypted password with password stored in db
-    var encrypted = cryptoJs.AES.encrypt(password, passwordKey).toString();
-  
-    //igor demo version, use plain text password for now
-    if(username === 'admin' && password === 'password'){ 
-      done(null, { // stub call to a database; returning fixed info
-        id: 42, fname: 'Tim', lname: 'Tsang', role: 'premium'
-      });
-    }
-    else {
-      done(null, false);
-    }
+    var encryptedPassword = cryptoJs.SHA256(password).toString();
+
+    dbManager.getDBUserData(username, (err, rowCount, fields) => {
+      if (rowCount === 1) {
+        var field = fields[0];
+        const ret_password = field[2].value;
+        const ret_role = field[1].value;
+
+        //check encrypted password
+        if (ret_password === encryptedPassword) {
+          done(null, {
+            name: username, role: ret_role, password: ret_password
+          });
+        } else {
+          done(null, false);
+        }
+      } else {
+        //no user account found, or has returned multiple users which should NOT happen
+        done(null, false);
+      }
+    });
   }
 ));
 
@@ -83,10 +89,9 @@ function serializeUser(req, res, next) {
   db.updateOrCreate(req.user, function(err, user){
     if(err) {return next(err);}
       req.user = {
-        id: user.id,
-        fname: user.fname,
-    	lname: user.lname,
-        role: user.role
+        name: user.name,
+        role: user.role,
+        password: user.password
       };
       next();
   });
@@ -96,10 +101,9 @@ function serializeUser(req, res, next) {
 // purpose: generates a token based on provided user.id; token is set to expire based on expiresIn value
 function generateToken(req, res, next) {  
   req.token = jwt.sign({
-    id: req.user.id,
-    fname: req.user.fname,
-    lname: req.user.lname,
-    role: req.user.role
+    name: req.user.name,
+    role: req.user.role,
+    password: req.user.password
   }, serverSecret, {
     expiresIn : EXPIRY_TIME	// set to expire in 5 minutes
   });
@@ -114,7 +118,6 @@ function returnToken(req, res) {
   });
 }
 
-//dummy db
 const db = {  
   updateOrCreate: function(user, cb){
     // db dummy, we just cb the user
@@ -138,7 +141,7 @@ app.post("/result", authenticate, (req, res) => {
 	    try {
 			  var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
 				var queryString = "SELECT * FROM dbo.Results WHERE InputExpression = '" + currentExpression + "'";
-				dbManager.getDBData(req, res, queryString, currentExpression, 1);
+				dbManager.getDBExpressionData(req, res, queryString, currentExpression, 1);
 		} catch (err) {
 			res.status(BAD_REQUEST).json({error: "Invalid request for results!"});
 		}
@@ -146,30 +149,32 @@ app.post("/result", authenticate, (req, res) => {
 
 //Handle POST requests for '/postfix' path, only accessible by premium users
 app.post("/postfix", authenticate, (req, res, next) => {
-	passport.authenticate('local', (err, user) => {
-		try {
-			if (req.user.role === 'premium') {
-				console.log("POST request received for /getPostfix");
-		    try {
-					var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
-					var queryString = "SELECT * FROM dbo.Results WHERE Postfix = '" + currentExpression + "'";
-					dbManager.getDBData(req, res, queryString, currentExpression, 2);
-				} catch (err) {
-					res.status(BAD_REQUEST).json({error: "Invalid request for postfix!"});
-				}
-			} 
-			else {
-				return res.status(FORBIDDEN).send({
-	          	'status': FORBIDDEN,
-	          	'message': 'You are not a premium user'
-	        	});
-			}
-		} 
-		catch (err) {
-			return res.status(UNAUTHORIZED).send({
-	        'status': UNAUTHORIZED,
-	        'message': 'An authentication error occurred.',
-      		});	
-		}		
-	}) (req, res, next);
+  passport.authenticate('local', (err, user) => {
+    try {
+      if (req.user.role === 'premium') {
+        console.log("POST request received for /getPostfix");
+        try {
+          var currentExpression = JSON.stringify(req.body.expression).replace(/\"/g, "");
+          var queryString = "SELECT * FROM dbo.Results WHERE Postfix = '" + currentExpression + "'";
+          dbManager.getDBExpressionData(req, res, queryString, currentExpression, 2);
+
+        } catch (err) {
+          res.status(400).json({error: "Invalid request for postfix!"});
+        }
+      } 
+      else if (req.user.role === 'regular') {
+        return res.status(403).send({
+              'status': 403,
+              'message': 'You are not a premium user'
+            });
+      }
+    } 
+    catch (err) {
+      return res.status(401).send({
+          'status': 401,
+          'message': 'An authentication error occurred.',
+          }); 
+    }
+    
+     }) (req, res, next);
 });

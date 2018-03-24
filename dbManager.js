@@ -1,5 +1,6 @@
 module.exports = {    
-    getDBData,
+    getDBExpressionData,
+    getDBUserData
 };
 
 const simplify = require('./simplify.js');
@@ -23,7 +24,7 @@ const connectionString = {
 };
 
 // run SQL query and obtain result set data
-function getDBData(req, res, inputstring, currentExpression, code) {
+function getDBExpressionData(req, res, inputstring, currentExpression, code) {
     // Connect with database
     var connection = new Connection(connectionString);
     connection.on('connect', function(err) {
@@ -47,10 +48,11 @@ function getDBData(req, res, inputstring, currentExpression, code) {
         rows.forEach(function(columns){
             var rowdata = new Object();
             columns.forEach(function(column) {
-                if (code == 1 && column.metadata.colName == "SimplifiedExpression") {
+                if (code === 1 && column.metadata.colName === "SimplifiedExpression") {
                     result = column.value;
-                } else if (code == 2 && column.metadata.colName == "Postfix") {
+                } else if (code === 2 && column.metadata.colName === "Postfix") {
                     result = column.value;
+                    console.log("results here is: " + result);
                 }
             });
         });
@@ -62,18 +64,20 @@ function getDBData(req, res, inputstring, currentExpression, code) {
             // Already in the dB, just return answer from dB 
             res.send(ret_value); 
         } else {
-            if (code == 1) {
+            if (code === 1) {
+                console.log("currentExpression is: " + currentExpression);
                 let simplified = simplify.simplify(currentExpression);
+
                 res.send(simplified); 
-    
+                
                 // Store to DB After 
-                insertIntoDb(res, connectionString, currentExpression, simplify.getPostfix(currentExpression), simplified);    
-            } else if (code == 2) {
+                insertExpressionIntoDb(res, connectionString, currentExpression, simplify.getPostfix(currentExpression), simplified);    
+            } else if (code === 2) {
                 let postfix = simplify.getPostfix(currentExpression);
                 res.send(postfix); 
 
                 // Store to DB After 
-                insertIntoDb(res, connectionString, currentExpression, postfix, simplify.simplify(currentExpression));    
+                insertExpressionIntoDb(res, connectionString, currentExpression, postfix, simplify.simplify(currentExpression));    
             }
         }        
     });      
@@ -82,7 +86,7 @@ function getDBData(req, res, inputstring, currentExpression, code) {
     });   
 }
 
-  function insertIntoDb(res, connectionString, currentExp, postfix, simplifiedExp) {
+  function insertExpressionIntoDb(res, connectionString, currentExp, postfix, simplifiedExp) {
     // Connect with database
     var connection = new Connection(connectionString);
     connection.on('connect', function(err) {
@@ -105,3 +109,28 @@ function getDBData(req, res, inputstring, currentExpression, code) {
       connection.execSql(request);  
     });
   }
+
+  //get user info (passwords and roles) using unique username
+  function getDBUserData(userName, callback) {
+     // Connect with database
+    var connection = new Connection(connectionString);
+    connection.on('connect', function(err) {
+      if (err) {
+        console.log(err)
+        return callback(err, null, null);
+      }
+
+    console.log("SQL query submitted for: " + userName);
+    var queryString = "SELECT * FROM dbo.Users WHERE Name='" + userName + "';";
+    var request = new Request(queryString, (err, rows, fields) => {
+        if (err) {
+            connection.close();
+            console.log('Invalid service request');
+            return callback(err, null, null);
+        } 
+        connection.close();        
+        callback(null, rows, fields);
+    });
+    connection.execSql(request);  
+    });
+}
